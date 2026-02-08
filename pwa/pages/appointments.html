@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#667eea">
+    <title>Appointments - MediConnect360</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/app.css">
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="app-header">
+        <div class="container">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-3">
+                    <a href="../index.html" class="btn btn-sm btn-light">
+                        <i class="bi bi-arrow-left"></i>
+                    </a>
+                    <h1 class="app-title">My Appointments</h1>
+                </div>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#bookModal">
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main class="app-main">
+        <div class="container py-4">
+            
+            <!-- Filter Tabs -->
+            <div class="btn-group w-100 mb-4" role="group">
+                <button type="button" class="btn btn-outline-primary active" data-filter="all">All</button>
+                <button type="button" class="btn btn-outline-primary" data-filter="upcoming">Upcoming</button>
+                <button type="button" class="btn btn-outline-primary" data-filter="completed">Completed</button>
+                <button type="button" class="btn btn-outline-primary" data-filter="cancelled">Cancelled</button>
+            </div>
+
+            <!-- Appointments List -->
+            <div id="appointmentsList">
+                <div class="spinner"></div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Book Appointment Modal -->
+    <div class="modal fade" id="bookModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Book Appointment</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="bookForm">
+                        <div class="mb-3">
+                            <label class="form-label">Doctor/Department</label>
+                            <select class="form-select" id="doctorSelect" required>
+                                <option value="">Choose...</option>
+                                <option value="1">Dr. Rajesh Kumar - Cardiology</option>
+                                <option value="2">Dr. Priya Sharma - Pediatrics</option>
+                                <option value="3">Dr. Amit Patel - Orthopedics</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Date</label>
+                            <input type="date" class="form-control" id="appointmentDate" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Time Slot</label>
+                            <select class="form-select" id="timeSlot" required>
+                                <option value="">Choose...</option>
+                                <option value="09:00 AM">09:00 AM</option>
+                                <option value="10:00 AM">10:00 AM</option>
+                                <option value="11:00 AM">11:00 AM</option>
+                                <option value="02:00 PM">02:00 PM</option>
+                                <option value="03:00 PM">03:00 PM</option>
+                                <option value="04:00 PM">04:00 PM</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Reason (Optional)</label>
+                            <textarea class="form-control" id="reason" rows="3"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-check-circle me-2"></i>Confirm Booking
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../js/db.js"></script>
+    <script src="../js/notifications.js"></script>
+    <script>
+        // Load appointments
+        async function loadAppointments(filter = 'all') {
+            const container = document.getElementById('appointmentsList');
+            const patientId = localStorage.getItem('patient_id');
+            
+            if (!patientId) {
+                window.location.href = '../index.html';
+                return;
+            }
+            
+            try {
+                let appointments = await mediDB.getAll('appointments');
+                
+                // Apply filter
+                if (filter === 'upcoming') {
+                    appointments = appointments.filter(a => new Date(a.appointment_date) >= new Date() && a.status !== 'cancelled');
+                } else if (filter === 'completed') {
+                    appointments = appointments.filter(a => a.status === 'completed');
+                } else if (filter === 'cancelled') {
+                    appointments = appointments.filter(a => a.status === 'cancelled');
+                }
+                
+                if (appointments.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="bi bi-calendar-x"></i>
+                            <p>No appointments found</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = appointments.map(apt => `
+                    <div class="appointment-item mb-3">
+                        <div class="appointment-info">
+                            <div class="appointment-doctor">
+                                <i class="bi bi-person-circle me-2"></i>${apt.doctor_name || 'Doctor'}
+                            </div>
+                            <div class="appointment-date">
+                                <i class="bi bi-calendar3"></i>
+                                ${new Date(apt.appointment_date).toLocaleDateString('en-IN', { 
+                                    day: 'numeric', 
+                                    month: 'short', 
+                                    year: 'numeric' 
+                                })}
+                                <i class="bi bi-clock ms-2"></i>
+                                ${apt.time_slot}
+                            </div>
+                            ${apt.reason ? `<div class="text-muted small mt-2">${apt.reason}</div>` : ''}
+                        </div>
+                        <div class="d-flex flex-column gap-2">
+                            <span class="badge-custom badge-${apt.status === 'confirmed' ? 'success' : apt.status === 'cancelled' ? 'danger' : 'warning'}">
+                                ${apt.status}
+                            </span>
+                            ${apt.status === 'confirmed' ? `
+                                <button class="btn btn-sm btn-outline-danger" onclick="cancelAppointment(${apt.id})">
+                                    <i class="bi bi-x-circle"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading appointments:', error);
+                container.innerHTML = '<p class="text-danger">Error loading appointments</p>';
+            }
+        }
+        
+        // Filter buttons
+        document.querySelectorAll('[data-filter]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                loadAppointments(this.dataset.filter);
+            });
+        });
+        
+        // Book appointment
+        document.getElementById('bookForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const data = {
+                patient_id: localStorage.getItem('patient_id'),
+                doctor_id: document.getElementById('doctorSelect').value,
+                appointment_date: document.getElementById('appointmentDate').value,
+                time_slot: document.getElementById('timeSlot').value,
+                reason: document.getElementById('reason').value
+            };
+            
+            try {
+                // Save to pending sync if offline
+                if (!navigator.onLine) {
+                    await mediDB.add('pendingSync', {
+                        url: '/mediconnect360/api/book_appointment.php',
+                        method: 'POST',
+                        data: data
+                    });
+                    
+                    alert('Appointment will be booked when you are online');
+                    bootstrap.Modal.getInstance(document.getElementById('bookModal')).hide();
+                    return;
+                }
+                
+                const response = await fetch('/mediconnect360/api/book_appointment.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Appointment booked successfully!');
+                    bootstrap.Modal.getInstance(document.getElementById('bookModal')).hide();
+                    
+                    // Schedule notification reminder
+                    notificationManager.showNotification('Appointment Confirmed! 📅', {
+                        body: `Your appointment is scheduled for ${data.appointment_date} at ${data.time_slot}`,
+                        tag: 'appointment-' + result.id
+                    });
+                    
+                    loadAppointments();
+                } else {
+                    alert(result.message || 'Booking failed');
+                }
+            } catch (error) {
+                console.error('Booking error:', error);
+                alert('Network error. Please try again.');
+            }
+        });
+        
+        // Cancel appointment
+        async function cancelAppointment(id) {
+            if (!confirm('Cancel this appointment?')) return;
+            
+            try {
+                await mediDB.delete('appointments', id);
+                loadAppointments();
+                alert('Appointment cancelled');
+            } catch (error) {
+                console.error('Cancel error:', error);
+            }
+        }
+        
+        // Set minimum date to today
+        document.getElementById('appointmentDate').min = new Date().toISOString().split('T')[0];
+        
+        // Load on page load
+        loadAppointments();
+    </script>
+</body>
+</html>

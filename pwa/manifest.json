@@ -1,0 +1,36 @@
+{
+  "name": "MediConnect360 Patient App",
+  "short_name": "MediConnect360",
+  "description": "Complete hospital management in your pocket - appointments, reports, bills and more",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#667eea",
+  "orientation": "portrait-primary",
+  "scope": "./",
+  "icons": [
+    {
+      "src": "img/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Book Appointment",
+      "short_name": "Book",
+      "description": "Quick book an appointment",
+      "url": "./pages/appointments.html",
+      "icons": [{ "src": "img/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "View Reports",
+      "short_name": "Reports",
+      "description": "Access lab reports",
+      "url": "./pages/reports.html",
+      "icons": [{ "src": "img/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ],
+  "categories": ["health", "medical", "lifestyle"]
+}

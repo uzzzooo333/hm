@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#667eea">
+    <title>Lab Reports - MediConnect360</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/app.css">
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="app-header">
+        <div class="container">
+            <div class="d-flex align-items-center gap-3">
+                <a href="../index.html" class="btn btn-sm btn-light">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <h1 class="app-title">Lab Reports</h1>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main class="app-main">
+        <div class="container py-4">
+            
+            <!-- Search -->
+            <div class="mb-4">
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text" class="form-control" id="searchInput" placeholder="Search reports...">
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="row g-3 mb-4">
+                <div class="col-4">
+                    <div class="stat-card stat-success">
+                        <div class="stat-value" id="totalReports">0</div>
+                        <div class="stat-label">Total</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="stat-card stat-primary">
+                        <div class="stat-value" id="thisMonth">0</div>
+                        <div class="stat-label">This Month</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="stat-card stat-warning">
+                        <div class="stat-value" id="pending">0</div>
+                        <div class="stat-label">Pending</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reports List -->
+            <div id="reportsList">
+                <div class="spinner"></div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Report Detail Modal -->
+    <div class="modal fade" id="reportModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="reportTitle">Report Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="reportDetails">
+                    <!-- Dynamic content -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <a id="downloadBtn" class="btn btn-primary" target="_blank">
+                        <i class="bi bi-download me-2"></i>Download
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../js/db.js"></script>
+    <script src="../js/notifications.js"></script>
+    <script>
+        let allReports = [];
+
+        // Load reports
+        async function loadReports() {
+            const container = document.getElementById('reportsList');
+            const patientId = localStorage.getItem('patient_id');
+            
+            if (!patientId) {
+                window.location.href = '../index.html';
+                return;
+            }
+            
+            try {
+                allReports = await mediDB.getAll('reports');
+                
+                // Calculate stats
+                document.getElementById('totalReports').textContent = allReports.length;
+                
+                const thisMonth = allReports.filter(r => {
+                    const reportDate = new Date(r.report_date);
+                    const now = new Date();
+                    return reportDate.getMonth() === now.getMonth() && 
+                           reportDate.getFullYear() === now.getFullYear();
+                }).length;
+                document.getElementById('thisMonth').textContent = thisMonth;
+                
+                const pending = allReports.filter(r => r.status === 'pending').length;
+                document.getElementById('pending').textContent = pending;
+                
+                renderReports(allReports);
+            } catch (error) {
+                console.error('Error loading reports:', error);
+                container.innerHTML = '<p class="text-danger">Error loading reports</p>';
+            }
+        }
+
+        function renderReports(reports) {
+            const container = document.getElementById('reportsList');
+            
+            if (reports.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="bi bi-file-earmark-x"></i>
+                        <p>No reports available</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Group by month
+            const grouped = reports.reduce((acc, report) => {
+                const date = new Date(report.report_date);
+                const key = date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(report);
+                return acc;
+            }, {});
+            
+            container.innerHTML = Object.entries(grouped).map(([month, reports]) => `
+                <div class="mb-4">
+                    <h6 class="text-muted mb-3">${month}</h6>
+                    ${reports.map(report => `
+                        <div class="report-item mb-3" onclick="viewReport(${report.id})">
+                            <div class="report-icon" style="background: ${getReportColor(report.test_type)}">
+                                <i class="bi bi-${getReportIcon(report.test_type)}"></i>
+                            </div>
+                            <div class="report-info">
+                                <div class="report-name">${report.test_name}</div>
+                                <div class="report-date">
+                                    ${new Date(report.report_date).toLocaleDateString('en-IN', {
+                                        day: 'numeric',
+                                        month: 'short',
+                                        year: 'numeric'
+                                    })}
+                                    ${report.doctor_name ? `· Dr. ${report.doctor_name}` : ''}
+                                </div>
+                            </div>
+                            <div class="d-flex flex-column gap-2 align-items-end">
+                                <span class="badge-custom badge-${report.status === 'completed' ? 'success' : 'warning'}">
+                                    ${report.status}
+                                </span>
+                                ${report.urgent ? '<span class="badge-custom badge-danger">Urgent</span>' : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `).join('');
+        }
+
+        function getReportColor(type) {
+            const colors = {
+                blood: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                urine: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                xray: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                scan: 'linear-gradient(135deg, #06b6d4, #0891b2)',
+                default: 'linear-gradient(135deg, #10b981, #059669)'
+            };
+            return colors[type] || colors.default;
+        }
+
+        function getReportIcon(type) {
+            const icons = {
+                blood: 'droplet-fill',
+                urine: 'moisture',
+                xray: 'lungs',
+                scan: 'laptop',
+                default: 'file-earmark-medical'
+            };
+            return icons[type] || icons.default;
+        }
+
+        async function viewReport(id) {
+            const report = allReports.find(r => r.id === id);
+            if (!report) return;
+            
+            document.getElementById('reportTitle').textContent = report.test_name;
+            document.getElementById('reportDetails').innerHTML = `
+                <div class="mb-3">
+                    <strong>Test Type:</strong>
+                    <p class="text-muted mb-0">${report.test_type || 'N/A'}</p>
+                </div>
+                <div class="mb-3">
+                    <strong>Report Date:</strong>
+                    <p class="text-muted mb-0">${new Date(report.report_date).toLocaleDateString('en-IN')}</p>
+                </div>
+                <div class="mb-3">
+                    <strong>Doctor:</strong>
+                    <p class="text-muted mb-0">${report.doctor_name || 'N/A'}</p>
+                </div>
+                <div class="mb-3">
+                    <strong>Status:</strong>
+                    <p><span class="badge-custom badge-${report.status === 'completed' ? 'success' : 'warning'}">${report.status}</span></p>
+                </div>
+                ${report.remarks ? `
+                    <div class="mb-3">
+                        <strong>Remarks:</strong>
+                        <p class="text-muted mb-0">${report.remarks}</p>
+                    </div>
+                ` : ''}
+                ${report.report_file ? `
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Report file is available for download
+                    </div>
+                ` : ''}
+            `;
+            
+            const downloadBtn = document.getElementById('downloadBtn');
+            if (report.report_file) {
+                downloadBtn.href = report.report_file;
+                downloadBtn.style.display = 'inline-block';
+            } else {
+                downloadBtn.style.display = 'none';
+            }
+            
+            const modal = new bootstrap.Modal(document.getElementById('reportModal'));
+            modal.show();
+        }
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const filtered = allReports.filter(r => 
+                r.test_name.toLowerCase().includes(query) ||
+                (r.test_type && r.test_type.toLowerCase().includes(query)) ||
+                (r.doctor_name && r.doctor_name.toLowerCase().includes(query))
+            );
+            renderReports(filtered);
+        });
+
+        // Load on page load
+        loadReports();
+    </script>
+</body>
+</html>

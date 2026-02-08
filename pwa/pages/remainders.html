@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#667eea">
+    <title>Medicine Reminders - MediConnect360</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/app.css">
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="app-header">
+        <div class="container">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-3">
+                    <a href="../index.html" class="btn btn-sm btn-light">
+                        <i class="bi bi-arrow-left"></i>
+                    </a>
+                    <h1 class="app-title">Medicine Reminders</h1>
+                </div>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addReminderModal">
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main class="app-main">
+        <div class="container py-4">
+            
+            <!-- Today's Reminders -->
+            <div class="section-title">Today's Schedule</div>
+            <div id="todayReminders" class="mb-4">
+                <div class="spinner"></div>
+            </div>
+
+            <!-- All Reminders -->
+            <div class="section-title">All Reminders</div>
+            <div id="allReminders">
+                <!-- Dynamic content -->
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Add Reminder Modal -->
+    <div class="modal fade" id="addReminderModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Medicine Reminder</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="reminderForm">
+                        <div class="mb-3">
+                            <label class="form-label">Medicine Name</label>
+                            <input type="text" class="form-control" id="medicineName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Dosage</label>
+                            <input type="text" class="form-control" id="dosage" placeholder="e.g., 1 tablet" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Times (Select multiple)</label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="08:00" id="time1">
+                                        <label class="form-check-label" for="time1">8:00 AM</label>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="13:00" id="time2">
+                                        <label class="form-check-label" for="time2">1:00 PM</label>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="20:00" id="time3">
+                                        <label class="form-check-label" for="time3">8:00 PM</label>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="22:00" id="time4">
+                                        <label class="form-check-label" for="time4">10:00 PM</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Custom Time</label>
+                            <input type="time" class="form-control" id="customTime">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Duration (Days)</label>
+                            <input type="number" class="form-control" id="duration" value="7" min="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea class="form-control" id="notes" rows="2" placeholder="Before/after meals, etc."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-bell me-2"></i>Set Reminder
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../js/db.js"></script>
+    <script src="../js/notifications.js"></script>
+    <script>
+        let allReminders = [];
+
+        // Load reminders
+        async function loadReminders() {
+            const patientId = localStorage.getItem('patient_id');
+            
+            if (!patientId) {
+                window.location.href = '../index.html';
+                return;
+            }
+            
+            try {
+                allReminders = await mediDB.getAll('reminders');
+                const activeReminders = allReminders.filter(r => r.active !== false);
+                
+                // Filter today's reminders
+                const today = new Date().toDateString();
+                const todayReminders = activeReminders.filter(r => {
+                    const reminderDate = new Date(r.next_reminder);
+                    return reminderDate.toDateString() === today;
+                });
+                
+                renderTodayReminders(todayReminders);
+                renderAllReminders(activeReminders);
+            } catch (error) {
+                console.error('Error loading reminders:', error);
+            }
+        }
+
+        function renderTodayReminders(reminders) {
+            const container = document.getElementById('todayReminders');
+            
+            if (reminders.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        No reminders for today
+                    </div>
+                `;
+                return;
+            }
+            
+            // Sort by time
+            reminders.sort((a, b) => a.time.localeCompare(b.time));
+            
+            container.innerHTML = reminders.map(reminder => `
+                <div class="appointment-item mb-3">
+                    <div class="appointment-info">
+                        <div class="appointment-doctor">
+                            💊 ${reminder.medicine_name}
+                        </div>
+                        <div class="appointment-date">
+                            <i class="bi bi-clock"></i>
+                            ${formatTime(reminder.time)} · ${reminder.dosage}
+                        </div>
+                        ${reminder.notes ? `<div class="text-muted small mt-2">${reminder.notes}</div>` : ''}
+                    </div>
+                    <div class="d-flex flex-column gap-2">
+                        ${reminder.taken ? 
+                            '<span class="badge-custom badge-success">Taken ✓</span>' :
+                            '<button class="btn btn-sm btn-success" onclick="markAsTaken(' + reminder.id + ')"><i class="bi bi-check2"></i></button>'
+                        }
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderAllReminders(reminders) {
+            const container = document.getElementById('allReminders');
+            
+            if (reminders.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="bi bi-alarm"></i>
+                        <p>No active reminders</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = reminders.map(reminder => `
+                <div class="report-item mb-3">
+                    <div class="report-icon" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed)">
+                        <i class="bi bi-capsule-pill"></i>
+                    </div>
+                    <div class="report-info">
+                        <div class="report-name">${reminder.medicine_name}</div>
+                        <div class="report-date">
+                            ${reminder.dosage} · ${reminder.times?.length || 1}x daily
+                        </div>
+                        <div class="text-muted small mt-1">
+                            ${reminder.duration} days remaining
+                        </div>
+                    </div>
+                    <div class="d-flex flex-column gap-2">
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteReminder(${reminder.id})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function formatTime(time24) {
+            const [hours, minutes] = time24.split(':');
+            const h = parseInt(hours);
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 || 12;
+            return `${h12}:${minutes} ${ampm}`;
+        }
+
+        async function markAsTaken(id) {
+            try {
+                const reminder = allReminders.find(r => r.id === id);
+                if (reminder) {
+                    reminder.taken = true;
+                    reminder.taken_at = new Date().toISOString();
+                    await mediDB.update('reminders', reminder);
+                    loadReminders();
+                    
+                    notificationManager.showNotification('Medicine Taken! ✅', {
+                        body: `${reminder.medicine_name} marked as taken`,
+                        tag: 'taken-' + id
+                    });
+                }
+            } catch (error) {
+                console.error('Error marking as taken:', error);
+            }
+        }
+
+        async function deleteReminder(id) {
+            if (!confirm('Delete this reminder?')) return;
+            
+            try {
+                await mediDB.delete('reminders', id);
+                loadReminders();
+            } catch (error) {
+                console.error('Error deleting reminder:', error);
+            }
+        }
+
+        // Add reminder form
+        document.getElementById('reminderForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const medicineName = document.getElementById('medicineName').value;
+            const dosage = document.getElementById('dosage').value;
+            const duration = parseInt(document.getElementById('duration').value);
+            const notes = document.getElementById('notes').value;
+            
+            // Get selected times
+            const times = [];
+            document.querySelectorAll('.form-check-input:checked').forEach(input => {
+                times.push(input.value);
+            });
+            
+            const customTime = document.getElementById('customTime').value;
+            if (customTime) {
+                times.push(customTime);
+            }
+            
+            if (times.length === 0) {
+                alert('Please select at least one time');
+                return;
+            }
+            
+            try {
+                // Create reminder for each time
+                for (const time of times) {
+                    await mediDB.add('reminders', {
+                        medicine_name: medicineName,
+                        dosage: dosage,
+                        time: time,
+                        times: times,
+                        duration: duration,
+                        notes: notes,
+                        active: true,
+                        taken: false,
+                        next_reminder: new Date().toISOString(),
+                        created_at: new Date().toISOString()
+                    });
+                    
+                    // Schedule notification
+                    notificationManager.scheduleMedicineReminder(
+                        { id: Date.now(), name: medicineName, dosage: dosage },
+                        times
+                    );
+                }
+                
+                alert('Reminders set successfully!');
+                bootstrap.Modal.getInstance(document.getElementById('addReminderModal')).hide();
+                document.getElementById('reminderForm').reset();
+                loadReminders();
+            } catch (error) {
+                console.error('Error creating reminder:', error);
+                alert('Failed to create reminder');
+            }
+        });
+
+        // Load on page load
+        loadReminders();
+    </script>
+</body>
+</html>

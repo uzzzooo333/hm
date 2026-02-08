@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#667eea">
+    <title>Bills & Payments - MediConnect360</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/app.css">
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="app-header">
+        <div class="container">
+            <div class="d-flex align-items-center gap-3">
+                <a href="../index.html" class="btn btn-sm btn-light">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <h1 class="app-title">Bills & Payments</h1>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main class="app-main">
+        <div class="container py-4">
+            
+            <!-- Summary Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-6">
+                    <div class="stat-card stat-danger">
+                        <i class="bi bi-exclamation-circle"></i>
+                        <div class="stat-value" id="pendingAmount">₹0</div>
+                        <div class="stat-label">Pending</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="stat-card stat-success">
+                        <i class="bi bi-check-circle"></i>
+                        <div class="stat-value" id="paidAmount">₹0</div>
+                        <div class="stat-label">Paid</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Tabs -->
+            <div class="btn-group w-100 mb-4" role="group">
+                <button type="button" class="btn btn-outline-primary active" data-filter="all">All</button>
+                <button type="button" class="btn btn-outline-primary" data-filter="pending">Pending</button>
+                <button type="button" class="btn btn-outline-primary" data-filter="paid">Paid</button>
+            </div>
+
+            <!-- Bills List -->
+            <div id="billsList">
+                <div class="spinner"></div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Bill Detail Modal -->
+    <div class="modal fade" id="billModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Bill Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="billDetails">
+                    <!-- Dynamic content -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-success" id="payNowBtn">
+                        <i class="bi bi-credit-card me-2"></i>Pay Now
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div class="modal fade" id="paymentModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Payment Options</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-grid gap-3">
+                        <button class="btn btn-outline-primary btn-lg" onclick="payOnline()">
+                            <i class="bi bi-credit-card me-2"></i>Pay Online
+                        </button>
+                        <button class="btn btn-outline-secondary btn-lg" onclick="payAtCounter()">
+                            <i class="bi bi-building me-2"></i>Pay at Counter
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../js/db.js"></script>
+    <script src="../js/notifications.js"></script>
+    <script>
+        let allBills = [];
+        let selectedBillId = null;
+
+        // Load bills
+        async function loadBills(filter = 'all') {
+            const container = document.getElementById('billsList');
+            const patientId = localStorage.getItem('patient_id');
+            
+            if (!patientId) {
+                window.location.href = '../index.html';
+                return;
+            }
+            
+            try {
+                allBills = await mediDB.getAll('bills');
+                
+                // Apply filter
+                let filtered = allBills;
+                if (filter === 'pending') {
+                    filtered = allBills.filter(b => b.payment_status === 'pending');
+                } else if (filter === 'paid') {
+                    filtered = allBills.filter(b => b.payment_status === 'paid');
+                }
+                
+                // Calculate totals
+                const pending = allBills
+                    .filter(b => b.payment_status === 'pending')
+                    .reduce((sum, b) => sum + parseFloat(b.net_amount || 0), 0);
+                
+                const paid = allBills
+                    .filter(b => b.payment_status === 'paid')
+                    .reduce((sum, b) => sum + parseFloat(b.net_amount || 0), 0);
+                
+                document.getElementById('pendingAmount').textContent = `₹${pending.toLocaleString('en-IN')}`;
+                document.getElementById('paidAmount').textContent = `₹${paid.toLocaleString('en-IN')}`;
+                
+                renderBills(filtered);
+            } catch (error) {
+                console.error('Error loading bills:', error);
+                container.innerHTML = '<p class="text-danger">Error loading bills</p>';
+            }
+        }
+
+        function renderBills(bills) {
+            const container = document.getElementById('billsList');
+            
+            if (bills.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="bi bi-receipt"></i>
+                        <p>No bills found</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = bills.map(bill => `
+                <div class="report-item mb-3" onclick="viewBill(${bill.id})">
+                    <div class="report-icon" style="background: ${bill.payment_status === 'paid' ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #ef4444, #dc2626)'}">
+                        <i class="bi bi-receipt"></i>
+                    </div>
+                    <div class="report-info">
+                        <div class="report-name">Bill #${bill.id || 'N/A'}</div>
+                        <div class="report-date">
+                            ${new Date(bill.bill_date).toLocaleDateString('en-IN', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric'
+                            })}
+                            ${bill.doctor_name ? `· Dr. ${bill.doctor_name}` : ''}
+                        </div>
+                        <div class="mt-1">
+                            <strong>₹${parseFloat(bill.net_amount || 0).toLocaleString('en-IN')}</strong>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-column gap-2 align-items-end">
+                        <span class="badge-custom badge-${bill.payment_status === 'paid' ? 'success' : 'danger'}">
+                            ${bill.payment_status}
+                        </span>
+                        ${bill.payment_status === 'pending' ? '<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); initiatePayment(' + bill.id + ')"><i class="bi bi-credit-card"></i></button>' : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function viewBill(id) {
+            const bill = allBills.find(b => b.id === id);
+            if (!bill) return;
+            
+            selectedBillId = id;
+            
+            document.getElementById('billDetails').innerHTML = `
+                <div class="mb-3">
+                    <strong>Bill Number:</strong>
+                    <p class="text-muted mb-0">#${bill.id}</p>
+                </div>
+                <div class="mb-3">
+                    <strong>Date:</strong>
+                    <p class="text-muted mb-0">${new Date(bill.bill_date).toLocaleDateString('en-IN')}</p>
+                </div>
+                <div class="mb-3">
+                    <strong>Doctor:</strong>
+                    <p class="text-muted mb-0">${bill.doctor_name || 'N/A'}</p>
+                </div>
+                <hr>
+                <div class="mb-3">
+                    <strong>Subtotal:</strong>
+                    <p class="text-muted mb-0">₹${parseFloat(bill.total_amount || 0).toLocaleString('en-IN')}</p>
+                </div>
+                ${bill.discount ? `
+                    <div class="mb-3">
+                        <strong>Discount:</strong>
+                        <p class="text-success mb-0">- ₹${parseFloat(bill.discount).toLocaleString('en-IN')}</p>
+                    </div>
+                ` : ''}
+                <div class="mb-3">
+                    <strong>Net Amount:</strong>
+                    <h4 class="text-primary mb-0">₹${parseFloat(bill.net_amount || 0).toLocaleString('en-IN')}</h4>
+                </div>
+                <div class="mb-3">
+                    <strong>Payment Status:</strong>
+                    <p><span class="badge-custom badge-${bill.payment_status === 'paid' ? 'success' : 'danger'}">${bill.payment_status}</span></p>
+                </div>
+                ${bill.payment_method ? `
+                    <div class="mb-3">
+                        <strong>Payment Method:</strong>
+                        <p class="text-muted mb-0">${bill.payment_method}</p>
+                    </div>
+                ` : ''}
+            `;
+            
+            const payNowBtn = document.getElementById('payNowBtn');
+            if (bill.payment_status === 'pending') {
+                payNowBtn.style.display = 'inline-block';
+                payNowBtn.onclick = () => initiatePayment(id);
+            } else {
+                payNowBtn.style.display = 'none';
+            }
+            
+            const modal = new bootstrap.Modal(document.getElementById('billModal'));
+            modal.show();
+        }
+
+        function initiatePayment(billId) {
+            selectedBillId = billId;
+            bootstrap.Modal.getInstance(document.getElementById('billModal'))?.hide();
+            const modal = new bootstrap.Modal(document.getElementById('paymentModal'));
+            modal.show();
+        }
+
+        async function payOnline() {
+            const bill = allBills.find(b => b.id === selectedBillId);
+            if (!bill) return;
+            
+            // Simulate online payment (integrate with Razorpay, Stripe, etc.)
+            if (confirm(`Pay ₹${parseFloat(bill.net_amount).toLocaleString('en-IN')} online?`)) {
+                try {
+                    // Update bill status
+                    bill.payment_status = 'paid';
+                    bill.payment_method = 'Online';
+                    bill.payment_date = new Date().toISOString();
+                    
+                    await mediDB.update('bills', bill);
+                    
+                    // Show notification
+                    notificationManager.showNotification('Payment Successful! ✅', {
+                        body: `₹${parseFloat(bill.net_amount).toLocaleString('en-IN')} paid successfully`,
+                        tag: 'payment-' + bill.id
+                    });
+                    
+                    alert('Payment successful!');
+                    bootstrap.Modal.getInstance(document.getElementById('paymentModal')).hide();
+                    loadBills();
+                } catch (error) {
+                    console.error('Payment error:', error);
+                    alert('Payment failed. Please try again.');
+                }
+            }
+        }
+
+        function payAtCounter() {
+            alert('Please visit the billing counter to complete payment');
+            bootstrap.Modal.getInstance(document.getElementById('paymentModal')).hide();
+        }
+
+        // Filter buttons
+        document.querySelectorAll('[data-filter]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                loadBills(this.dataset.filter);
+            });
+        });
+
+        // Load on page load
+        loadBills();
+    </script>
+</body>
+</html>

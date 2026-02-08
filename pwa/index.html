@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="MediConnect360 Patient App - Manage appointments, view reports, pay bills">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MediConnect360">
+    
+    <title>MediConnect360 Patient App</title>
+    
+    <!-- Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Icons -->
+    <link rel="icon" href="img/icon.svg">
+    <link rel="apple-touch-icon" href="img/icon.svg">
+    
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+    <!-- Install Banner -->
+    <div id="installBanner" class="install-banner" style="display: none;">
+        <div class="container">
+            <div class="d-flex align-items-center justify-content-between py-2">
+                <div class="d-flex align-items-center gap-3">
+                    <img src="img/icon.svg" alt="App Icon" width="48" height="48" style="border-radius: 10px;">
+                    <div>
+                        <strong>Install MediConnect360</strong>
+                        <p class="mb-0 small">Quick access from your home screen</p>
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button id="installBtn" class="btn btn-primary btn-sm">Install</button>
+                    <button id="dismissInstall" class="btn btn-outline-secondary btn-sm">×</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Header -->
+    <header class="app-header">
+        <div class="container">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-3">
+                    <img src="img/icon.svg" alt="Logo" width="40" height="40" style="border-radius: 8px;">
+                    <div>
+                        <h1 class="app-title">MediConnect360</h1>
+                        <p class="app-subtitle" id="userName">Patient Portal</p>
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-light icon-btn" id="syncBtn">
+                        <i class="bi bi-arrow-repeat"></i>
+                    </button>
+                    <button class="btn btn-sm btn-light icon-btn" id="notificationBtn">
+                        <i class="bi bi-bell"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="app-main">
+        <div class="container py-4">
+            
+            <!-- Login Section -->
+            <div id="loginSection" class="login-shell">
+                <div class="login-card">
+                    <div class="text-center mb-4">
+                        <img src="img/icon.svg" alt="Logo" width="80" height="80" style="border-radius: 20px;">
+                        <h2 class="mt-3">Welcome Back</h2>
+                        <p class="text-muted">Login to access your health records</p>
+                    </div>
+                    
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label class="form-label">Patient ID</label>
+                            <input type="text" class="form-control" id="patientId" placeholder="Enter Patient ID" value="11" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Date of Birth</label>
+                            <input type="date" class="form-control" id="dob" value="1976-03-11" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 btn-pill">
+                            <i class="bi bi-box-arrow-in-right me-2"></i>Login
+                        </button>
+                    </form>
+                    <div class="text-center mt-3 small text-muted">
+                        Secure access • Encrypted records
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Section -->
+            <div id="dashboardSection" style="display: none;">
+                
+                <!-- Quick Stats -->
+                <div class="row g-3 mb-4">
+                    <div class="col-6">
+                        <div class="stat-card stat-primary">
+                            <i class="bi bi-calendar-check"></i>
+                            <div class="stat-value" id="upcomingCount">0</div>
+                            <div class="stat-label">Upcoming</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="stat-card stat-success">
+                            <i class="bi bi-file-earmark-medical"></i>
+                            <div class="stat-value" id="reportsCount">0</div>
+                            <div class="stat-label">Reports</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="section-title">Quick Actions</div>
+                <div class="row g-3 mb-4">
+                    <div class="col-6">
+                        <a href="pages/appointments.html" class="action-card">
+                            <i class="bi bi-calendar-plus"></i>
+                            <span>Appointments</span>
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <a href="pages/reports.html" class="action-card">
+                            <i class="bi bi-file-text"></i>
+                            <span>Reports</span>
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <a href="pages/bills.html" class="action-card">
+                            <i class="bi bi-receipt"></i>
+                            <span>Bills</span>
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <a href="pages/reminders.html" class="action-card">
+                            <i class="bi bi-alarm"></i>
+                            <span>Reminders</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Upcoming Appointments -->
+                <div class="section-title">Upcoming Appointments</div>
+                <div id="appointmentsList" class="mb-4">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Reports -->
+                <div class="section-title">Recent Reports</div>
+                <div id="reportsList" class="mb-4">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-success" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Logout -->
+                <div class="text-center mt-4">
+                    <button id="logoutBtn" class="btn btn-outline-danger">
+                        <i class="bi bi-box-arrow-right me-2"></i>Logout
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Offline Indicator -->
+    <div id="offlineIndicator" class="offline-indicator" style="display: none;">
+        <i class="bi bi-wifi-off me-2"></i>You are offline - using cached data
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/db.js?v=1.0.1"></script>
+    <script src="js/notifications.js?v=1.0.1"></script>
+    <script src="js/app.js?v=1.0.1"></script>
+
+</body>
+</html>
